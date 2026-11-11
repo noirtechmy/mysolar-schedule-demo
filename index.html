@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>MySolar — Job Schedule</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+/* ---- Shared look: copied from the Warranty Registry so both feel like one system ---- */
+:root{
+  --blue:#006C9C; --blue-deep:#004A6B; --blue-night:#0A2B38; --tint:#EDF4F8;
+  --green:#0F7B4F; --green-bg:#E4F4EC;
+  --amber:#9A6410; --amber-bg:#FCF0DC;
+  --red:#A32A20;  --red-bg:#FBE9E7;
+  --grey:#5A6B74; --line:#D8E2E7; --ink:#12242D; --paper:#fff; --bg:#F5F8FA;
+  --sans:'Public Sans',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0;line-height:1.2;font-weight:700;letter-spacing:-.015em}
+h1{font-size:1.5rem} h2{font-size:1.2rem} h3{font-size:1rem}
+a{color:var(--blue)}
+button{font-family:inherit}
+:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.mono{font-family:var(--mono)}
+
+.demoflag{background:var(--blue-night);color:#F0B429;font-family:var(--mono);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;text-align:center;padding:7px}
+.topnav{background:var(--blue-night);color:#fff}
+.topnav .in{max-width:1240px;margin:0 auto;padding:12px 22px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:9px;font-weight:700;font-size:1.06rem;letter-spacing:-.02em}
+.brand span{font-family:var(--mono);font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;color:#7FB4C8;font-weight:500}
+.navbtns{display:flex;gap:8px;align-items:center}
+.navbtns a,.navbtns button{color:#BBD8E4;text-decoration:none;font-size:.88rem;font-weight:600;padding:7px 13px;border-radius:4px;background:none;border:0;cursor:pointer}
+.navbtns a:hover,.navbtns button:hover{background:rgba(255,255,255,.1);color:#fff}
+.navbtns a.on{background:var(--blue);color:#fff}
+#langBtn{border:1px solid rgba(255,255,255,.3);border-radius:4px;font-size:.8rem;padding:5px 11px}
+/* Phones: the six signed-in buttons were wider than the screen, which made
+   the browser zoom every page out. Let them wrap onto a second line. */
+@media(max-width:600px){
+  .topnav .in{padding:10px 14px}
+  .navbtns{flex-wrap:wrap;gap:4px;width:100%}
+  .navbtns a,.navbtns button{padding:6px 9px;font-size:.84rem}
+}
+
+.page{max-width:1240px;margin:0 auto;padding:26px 22px 60px}
+.narrow{max-width:620px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:7px}
+.card-pad{padding:22px}
+/* Labels were 11px uppercase monospace — that reads as developer tooling.
+   Sentence case in the body font reads as ordinary business software. */
+label{display:block;font-family:var(--sans);font-size:.9rem;font-weight:600;
+  letter-spacing:0;text-transform:none;color:var(--ink);margin-bottom:7px}
+input,select{width:100%;padding:13px 14px;border:1.5px solid var(--line);border-radius:6px;
+  font-family:var(--sans);font-size:1rem;background:#fff;color:var(--ink)}
+input[type=checkbox]{width:auto}
+input:focus,select:focus{border-color:var(--blue);outline:none}
+select{font-family:var(--sans)}
+.field{margin-bottom:15px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:600px){.row2{grid-template-columns:1fr}}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border:1.5px solid transparent;border-radius:6px;padding:13px 22px;font-size:1rem;
+  font-weight:600;cursor:pointer;text-decoration:none;transition:.14s}
+.btn-p{background:var(--blue);color:#fff}
+.btn-p:hover{background:var(--blue-deep)}
+.btn-p[disabled]{opacity:.6;cursor:wait}
+.btn-s{background:#fff;border-color:var(--line);color:var(--ink)}
+.btn-s:hover{border-color:var(--blue);color:var(--blue)}
+.btn-full{width:100%}
+.err{background:var(--red-bg);color:var(--red);border:1px solid #F0C7C2;border-radius:5px;padding:11px 13px;font-size:.9rem;margin-bottom:14px}
+.ok{background:var(--green-bg);color:var(--green);border:1px solid #BFE3D1;border-radius:5px;padding:11px 13px;font-size:.9rem;margin-bottom:14px}
+.muted{color:var(--grey)} .tiny{font-size:.85rem}
+
+.pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--sans);font-size:.8rem;
+  font-weight:600;letter-spacing:0;text-transform:none;padding:5px 11px;border-radius:99px;
+  white-space:nowrap}
+.pill.g{background:var(--green-bg);color:var(--green)}
+.pill.w{background:var(--tint);color:var(--blue-deep)}
+.pill.x{background:var(--red-bg);color:var(--red)}
+.pill.n{background:#EEF1F3;color:var(--grey)}
+.pill.a{background:var(--amber-bg);color:var(--amber)}
+
+.hero-c{background:linear-gradient(155deg,var(--blue) 0%,var(--blue-deep) 100%);color:#fff;padding:40px 22px 46px}
+.hero-c .in{max-width:620px;margin:0 auto}
+.hero-c h1{font-size:1.85rem;color:#fff}
+.hero-c p{color:#C4E0EC;margin:10px 0 0}
+.lookup-card{max-width:620px;margin:-30px auto 0;position:relative}
+.result-hd{padding:20px 22px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}
+.result-hd .model{font-size:1.25rem;font-weight:700}
+.timeline{padding:20px 22px;border-bottom:1px solid var(--line)}
+.bar{height:9px;background:#E6ECEF;border-radius:99px;overflow:hidden;margin:9px 0 7px;position:relative}
+.bar i{display:block;height:100%;background:var(--blue);border-radius:99px;position:relative;z-index:2}
+.bar .g{position:absolute;top:0;left:0;height:100%;background:var(--green);border-radius:99px;opacity:.85}
+.barlbl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.7rem;color:var(--grey);letter-spacing:.06em}
+dl.kv{display:grid;grid-template-columns:auto 1fr;gap:12px 20px;margin:0;padding:20px 22px}
+dl.kv dt{color:var(--grey);font-size:.95rem}
+dl.kv dd{margin:0;font-family:var(--sans);font-size:.95rem;font-weight:600;text-align:right}
+.svc{padding:18px 22px;border-top:1px solid var(--line)}
+.svc-item{display:flex;gap:12px;padding:9px 0;border-bottom:1px dashed var(--line);font-size:.9rem}
+.svc-item:last-child{border-bottom:0}
+.svc-item .d{font-family:var(--mono);font-size:.82rem;color:var(--grey);white-space:nowrap;min-width:92px}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+@media(max-width:820px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat{background:var(--paper);border:1px solid var(--line);border-radius:8px;
+  padding:18px 20px;text-align:left;width:100%;font-family:var(--sans)}
+button.stat{cursor:pointer;transition:.14s}
+button.stat:hover{border-color:var(--blue);box-shadow:0 2px 10px rgba(0,108,156,.12)}
+button.stat.on{border-color:var(--blue);border-width:2px;background:var(--tint)}
+.stat b{display:block;font-size:2rem;font-weight:700;letter-spacing:-.03em;line-height:1.1;margin-bottom:3px}
+.stat span{font-family:var(--sans);font-size:.88rem;letter-spacing:0;
+  text-transform:none;color:var(--grey);font-weight:500}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:16px}
+.toolbar .field{margin:0}
+.toolbar .grow{flex:1;min-width:210px}
+table{width:100%;border-collapse:collapse;background:var(--paper)}
+th{text-align:left;font-family:var(--sans);font-size:.85rem;letter-spacing:0;
+  text-transform:none;color:var(--grey);font-weight:600;padding:13px 16px;
+  border-bottom:1.5px solid var(--line);white-space:nowrap}
+td{padding:15px 16px;border-bottom:1px solid var(--line);font-size:.96rem;vertical-align:middle}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--tint)}
+/* Blacklisted rows are shaded, not just tagged — staff scanning a long list
+   should see it without reading. */
+tbody tr.row-bl{background:var(--red-bg)}
+tbody tr.row-bl:hover{background:#F7DBD7}
+tbody tr.row-bl td:first-child{box-shadow:inset 3px 0 0 var(--red)}
+tbody tr.row-bl td{color:#6B1F18}
+tbody tr.row-bl td b{color:var(--red)}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:7px}
+.src{font-family:var(--sans);font-size:.84rem;color:var(--grey)}
+.empty{padding:44px 20px;text-align:center;color:var(--grey)}
+.crumb{background:none;border:0;color:var(--blue);font-weight:600;font-size:.9rem;cursor:pointer;padding:0;margin-bottom:14px}
+.detail-grid{display:grid;grid-template-columns:1.25fr .75fr;gap:18px}
+@media(max-width:900px){.detail-grid{grid-template-columns:1fr}}
+.sec-h{padding:16px 20px;border-bottom:1px solid var(--line);font-weight:700;font-size:1.05rem;
+  display:flex;justify-content:space-between;align-items:center;gap:10px}
+.claim{padding:13px 18px;border-bottom:1px solid var(--line);font-size:.9rem}
+.claim:last-child{border-bottom:0}
+.badge{background:var(--amber);color:#3A2600;border-radius:99px;padding:1px 7px;font-size:.74rem;font-weight:700}
+.fu{background:var(--paper);border:1px solid var(--line);border-radius:7px;margin-bottom:10px}
+.fu-main{padding:15px 18px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}
+.fu-name{font-weight:700;font-size:1.02rem;margin-top:7px}
+.fu-acts{display:flex;gap:7px;flex-wrap:wrap}
+.fu-panel{display:none;padding:15px 18px;border-top:1px solid var(--line);background:var(--tint)}
+.fu-panel.show{display:block}
+.fu-opts{display:flex;gap:7px;flex-wrap:wrap}
+.sk{height:46px;background:linear-gradient(90deg,#EDF1F3 25%,#F6F8F9 50%,#EDF1F3 75%);
+  background-size:200% 100%;animation:shimmer 1.2s linear infinite;border-radius:6px;margin-bottom:10px}
+.sk-lg{height:82px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+@media(prefers-reduced-motion:reduce){.sk{animation:none}}
+.searchbar{display:flex;gap:10px;margin-bottom:14px}
+.searchbar input{flex:1}
+.searchbar .btn{white-space:nowrap}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--blue);margin-left:4px}
+.filters{display:none;gap:14px;flex-wrap:wrap;margin-bottom:18px;padding:18px;
+  background:var(--tint);border-radius:8px}
+.filters.show{display:flex}
+.filters .field{margin:0;min-width:180px;flex:1}
+.pager{display:flex;justify-content:space-between;align-items:center;gap:14px;
+  flex-wrap:wrap;margin-top:14px}
+.pgbtns{display:flex;align-items:center;gap:10px}
+.pgbtns .btn{padding:8px 16px;font-size:.88rem}
+.pgbtns .btn[disabled]{opacity:.45;cursor:default}
+.claim.voided{opacity:.55}
+.claim.voided b{text-decoration:line-through}
+.lnk{background:none;border:0;color:var(--blue);font-size:.84rem;font-weight:600;
+  cursor:pointer;padding:0;margin-right:14px;text-decoration:underline}
+.lnk:hover{color:var(--blue-deep)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;border-bottom:1px solid var(--line);padding-bottom:10px}
+.tab{background:#fff;border:1.5px solid var(--line);border-radius:5px;padding:9px 15px;
+  font-size:.9rem;font-weight:600;color:var(--ink);cursor:pointer;display:flex;align-items:center;gap:7px}
+.tab:hover{border-color:var(--blue);color:var(--blue)}
+.tab.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.tabn{background:rgba(0,0,0,.12);border-radius:99px;padding:1px 7px;font-size:.78rem}
+.tab.on .tabn{background:rgba(255,255,255,.25)}
+
+/* ---- Job Schedule ---- */
+input[type=radio]{width:auto}
+fieldset.addr{border:1px solid var(--line);border-radius:7px;padding:12px 14px 2px;margin:0 0 14px}
+fieldset.addr legend{font-weight:700;font-size:.85rem;color:var(--blue-deep);padding:0 6px}
+.lnk{background:none;border:0;color:var(--blue);cursor:pointer;font:inherit;padding:0;text-decoration:underline}
+textarea{width:100%;padding:11px 14px;border:1.5px solid var(--line);border-radius:6px;font-family:var(--sans);font-size:1rem;resize:vertical}
+textarea:focus{border-color:var(--blue);outline:none}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:700px){.row3{grid-template-columns:1fr}}
+.btn-sm{padding:7px 13px;font-size:.88rem}
+.btn-d{background:#fff;border-color:#F0C7C2;color:var(--red)}
+.btn-d:hover{border-color:var(--red)}
+
+.calbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.calbar h1{font-size:1.35rem;min-width:190px}
+.calbar .sp{flex:1}
+.calbar select,.calbar input{width:auto;padding:9px 11px;font-size:.92rem}
+.calbar input[type=search]{min-width:200px}
+.seg{display:inline-flex;border:1.5px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{background:#fff;border:0;padding:8px 14px;font-weight:600;font-size:.88rem;cursor:pointer;color:var(--ink)}
+.seg button+button{border-left:1.5px solid var(--line)}
+.seg button.on{background:var(--blue);color:#fff}
+
+.conflicts{background:var(--amber-bg);border:1px solid #EFD9AE;border-radius:7px;padding:10px 14px;margin-bottom:14px;font-size:.9rem}
+.conflicts summary{cursor:pointer;font-weight:600;color:var(--amber)}
+.conflicts ul{margin:8px 0 2px;padding-left:18px}
+
+/* Month: the whiteboard */
+.month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border:1px solid var(--line);border-radius:7px;overflow:hidden;background:var(--paper)}
+.month .dow{background:var(--tint);font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--blue-deep);padding:8px 8px;border-bottom:1px solid var(--line)}
+.month .cell{min-height:118px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:5px 5px 7px;position:relative}
+.month .cell:nth-child(7n){border-right:0}
+.month .cell.out{background:#FAFBFC}
+.month .cell.out .dnum{color:#A9B6BD}
+.month .cell.today{box-shadow:inset 0 0 0 2px var(--blue)}
+.dnum{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:.78rem;color:var(--grey);margin-bottom:3px}
+.dnum button{background:none;border:0;font:inherit;color:inherit;cursor:pointer;padding:1px 4px;border-radius:3px}
+.dnum button:hover{background:var(--tint);color:var(--blue)}
+.dnum .add{opacity:0;font-weight:700;color:var(--blue)}
+.cell:hover .dnum .add{opacity:1}
+.jl{display:block;width:100%;text-align:left;background:#fff;border:0;border-left:3px solid var(--tc,#888);
+  padding:2px 5px;margin:2px 0;font-size:.76rem;line-height:1.3;cursor:pointer;border-radius:0 3px 3px 0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink);font-family:var(--sans)}
+.jl:hover{background:var(--tint)}
+.jl.done{color:var(--grey)}
+.jl.postponed{background:var(--amber-bg);font-style:italic}
+.jl.cancelled{text-decoration:line-through;color:#9AA7AE}
+.jl.in_progress{background:#EAF3FF}
+.more{font-size:.74rem;color:var(--blue);background:none;border:0;cursor:pointer;padding:2px 4px}
+.tag{display:inline-block;font-size:.66rem;font-weight:700;letter-spacing:.04em;padding:0 4px;border-radius:3px;background:var(--amber-bg);color:var(--amber);margin-left:3px;vertical-align:1px}
+
+/* Week and day */
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+.wcol{background:var(--paper);border:1px solid var(--line);border-radius:7px;min-height:220px}
+.wcol.today{border-color:var(--blue);border-width:2px}
+.wcol h3{font-size:.86rem;padding:8px 10px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.wcol h3 button{background:none;border:0;cursor:pointer;color:var(--blue);font-weight:700;font:inherit}
+.jc{display:block;width:calc(100% - 12px);margin:6px;text-align:left;background:#fff;border:1px solid var(--line);border-left:4px solid var(--tc,#888);
+  border-radius:5px;padding:6px 8px;cursor:pointer;font-family:var(--sans);font-size:.82rem;color:var(--ink)}
+.jc:hover{border-color:var(--blue)}
+.jc b{display:block;font-size:.84rem;line-height:1.3}
+.jc .m{color:var(--grey);font-size:.76rem}
+.jc.done{opacity:.6} .jc.cancelled{opacity:.5;text-decoration:line-through} .jc.postponed{background:var(--amber-bg)}
+.teamblock{background:var(--paper);border:1px solid var(--line);border-radius:7px;margin-bottom:14px;border-top:4px solid var(--tc,#888)}
+.teamblock .hd{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.crew{font-size:.88rem;color:var(--grey)}
+.crew b{color:var(--ink)}
+.jrow{display:grid;grid-template-columns:110px 1fr auto;gap:12px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--line);cursor:pointer}
+.jrow:last-child{border-bottom:0}
+.jrow:hover{background:var(--tint)}
+.jrow .slot{font-family:var(--mono);font-size:.8rem;color:var(--grey)}
+@media(max-width:760px){
+  .week{grid-template-columns:1fr}
+  .wcol{min-height:0}
+  .jrow{grid-template-columns:1fr auto}
+  .jrow .slot{grid-column:1 / -1}
+}
+.agenda .aday{background:var(--paper);border:1px solid var(--line);border-radius:7px;margin-bottom:10px}
+.agenda .aday h3{font-size:.9rem;padding:9px 12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
+.agenda .aday.today{border-color:var(--blue);border-width:2px}
+
+/* Modal */
+.modal{position:fixed;inset:0;z-index:300;background:rgba(10,43,56,.55);display:flex;align-items:flex-start;justify-content:center;padding:24px 14px;overflow:auto}
+.modal .box{background:#fff;border-radius:8px;max-width:760px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.modal .box .hd{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:5px solid var(--tc,var(--blue));border-radius:8px 8px 0 0}
+.modal .box .bd{padding:18px 20px}
+.modal .box .ft{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.x{background:none;border:0;font-size:1.5rem;line-height:1;cursor:pointer;color:var(--grey)}
+dl.kv2{display:grid;grid-template-columns:max-content 1fr;gap:6px 16px;margin:0;font-size:.93rem}
+dl.kv2 dt{color:var(--grey)}
+dl.kv2 dd{margin:0;overflow-wrap:anywhere}
+.stbtns{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 2px}
+.stbtns button{padding:7px 11px;font-size:.84rem;border-radius:5px;border:1.5px solid var(--line);background:#fff;cursor:pointer;font-weight:600}
+.stbtns button.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.chk{border:1px solid var(--line);border-radius:7px;padding:12px 14px;margin-top:14px;background:var(--tint)}
+.yn{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.yn > span{min-width:170px;font-weight:600;font-size:.9rem}
+.yn label{display:inline-flex;gap:5px;align-items:center;margin:0;font-weight:500}
+.yn input[type=text],.yn input[type=number]{width:auto;flex:1;min-width:120px;padding:8px 10px;font-size:.92rem}
+
+/* Day sheet: their paper form, on screen and in print */
+.sheethd{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 18px;padding:16px 18px;font-size:.92rem}
+.sheethd .k{color:var(--grey);font-size:.8rem}
+.sheethd .v{font-weight:600}
+@media(max-width:760px){.sheethd{grid-template-columns:1fr 1fr}}
+table.sheet{font-size:.86rem}
+table.sheet th{font-size:.8rem;padding:8px 10px;background:var(--tint)}
+table.sheet td{padding:9px 10px;vertical-align:top;font-size:.86rem}
+table.sheet tbody tr{cursor:default}
+table.sheet tbody tr:hover{background:inherit}
+.remarks div{white-space:nowrap}
+.sq{display:inline-block;width:11px;height:11px;border:1px solid #555;vertical-align:-1px;margin:0 3px 0 6px}
+.signs{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:14px 18px}
+@media(max-width:700px){.signs{grid-template-columns:1fr}}
+.sign{border:1px dashed var(--line);border-radius:6px;padding:10px 12px;font-size:.9rem}
+.sign .who{font-weight:600}
+.sigline{border-bottom:1px solid #888;height:34px;margin-bottom:4px}
+.onlyprint{display:none}
+@page{size:A4 landscape;margin:9mm}
+@media print{
+  .noprint,.topnav,.demoflag,#cfgWarn{display:none !important}
+  .onlyprint{display:block}
+  body{background:#fff;font-size:10pt}
+  .page{padding:0;max-width:none}
+  .card{border:0}
+  .sheethd input{border:0;padding:0 2px !important}
+  .modal{display:none}
+  table.sheet th,table.sheet td{border:1px solid #777;font-size:8.5pt;padding:4px 5px}
+  .tablewrap{border:0;overflow:visible}
+  table.sheet tr{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+
+<div class="demoflag" id="flag">MySolar Job Schedule</div>
+
+<div class="topnav">
+  <div class="in">
+    <div class="brand">MySolar <span>Job Schedule</span></div>
+    <div class="navbtns" id="nav"></div>
+  </div>
+</div>
+
+<div id="cfgWarn"></div>
+<div id="app"><div class="page"><div class="sk sk-lg"></div><div class="sk"></div><div class="sk"></div></div></div>
+<div id="modalRoot"></div>
+
+<script>
+/* ==========================================================================
+   SETUP — paste the two values from Supabase:
+   Project Settings → API (or "API Keys"): the Project URL, and the anon /
+   publishable key. Never paste the service_role / secret key here.
+   ========================================================================== */
+const SUPABASE_URL      = "PASTE_SUPABASE_URL_HERE";
+const SUPABASE_ANON_KEY = "PASTE_SUPABASE_ANON_KEY_HERE";
+
+/* Shown in the bar at the very top. Leave "" on the live system. */
+const ENV_LABEL = "Demo — sample data only";
+
+if (!window.supabase || !window.supabase.createClient) {
+  document.getElementById("app").innerHTML = '<div class="page"><div class="card card-pad"><h2>Could not start</h2><p>The page could not load the part it needs to reach the database. Please check the internet connection and reload.</p></div></div>';
+  throw new Error("Supabase library failed to load");
+}
+if (SUPABASE_URL.startsWith("PASTE_") || SUPABASE_ANON_KEY.startsWith("PASTE_")) {
+  document.getElementById("app").innerHTML = '<div class="page narrow"><div class="card card-pad"><h2>Almost there</h2><p>Open this file and paste the Supabase Project URL and anon (publishable) key at the top of the script, then upload it again.</p></div></div>';
+  throw new Error("Supabase settings not filled in");
+}
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+if (ENV_LABEL) document.getElementById("flag").textContent = "MySolar Job Schedule · " + ENV_LABEL;
+
+/* --------------------------------------------------------------------------
+   Small helpers
+   -------------------------------------------------------------------------- */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad = n => String(n).padStart(2, "0");
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parse = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return iso(d); };
+const todayISO = () => iso(new Date());
+const fmtDay = s => parse(s).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+const fmtLong = s => parse(s).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+const fmtWhen = ts => ts ? new Date(ts).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+const between = (d, a, b) => d >= a && d <= b;
+
+const JOB_TYPES = [
+  ["install", "Installation"], ["service", "Service / repair"], ["site_visit", "Site visit"],
+  ["dismantle", "Dismantle"], ["delivery", "Delivery"], ["setup", "Setup / event"],
+  ["meeting", "Meeting"], ["other", "Other"]
+];
+const typeLabel = v => (JOB_TYPES.find(t => t[0] === v) || [, v])[1];
+const SLOTS = [["full", "Full day"], ["am", "Morning"], ["pm", "Afternoon"], ["night", "Night"], ["time", "Set time"]];
+const slotLabel = j => j.time_slot === "time" && j.start_time ? j.start_time.slice(0, 5)
+                    : (SLOTS.find(s => s[0] === j.time_slot) || [, ""])[1];
+const STATUSES = [
+  ["scheduled", "Scheduled", "w"], ["in_progress", "In progress", "a"], ["done", "Done", "g"],
+  ["postponed", "Postponed", "a"], ["cancelled", "Cancelled", "n"]
+];
+const statusPill = s => { const x = STATUSES.find(t => t[0] === s) || [s, s, "n"]; return `<span class="pill ${x[2]}">${x[1]}</span>`; };
+const ROLES = [["installer", "Installer"], ["driver", "Driver"], ["supervisor", "Supervisor"], ["office", "Office"], ["other", "Other"]];
+const liftText = j => j.lifting === "crane" ? `Crane ${Number(j.crane_tons)}t` : j.lifting === "skylift" ? "Skylift" : "";
+const errMsg = e => (e && (e.message || e.error_description)) || String(e);
+
+/* --------------------------------------------------------------------------
+   State
+   -------------------------------------------------------------------------- */
+let USER = null, IS_ADMIN = false;
+let REF = { teams: [], staff: [], lorries: [] };
+const VIEW = { mode: window.innerWidth < 760 ? "week" : "month", date: todayISO(), team: "", type: "", q: "" };
+const team    = id => REF.teams.find(t => String(t.id) === String(id));
+const person  = id => REF.staff.find(s => String(s.id) === String(id));
+const lorry   = id => REF.lorries.find(l => String(l.id) === String(id));
+const teamColour = id => (team(id) || {}).colour || "#8A99A1";
+
+/* --------------------------------------------------------------------------
+   Data
+   -------------------------------------------------------------------------- */
+const DB = {
+  async ref(){
+    const [t, s, l] = await Promise.all([
+      sb.from("sched_teams").select("*").order("sort_order").order("name"),
+      sb.from("sched_staff").select("*").order("name"),
+      sb.from("sched_lorries").select("*").order("plate")
+    ]);
+    for (const r of [t, s, l]) if (r.error) throw r.error;
+    REF = { teams: t.data, staff: s.data, lorries: l.data };
+  },
+  async range(from, to){
+    const [j, sh, lv] = await Promise.all([
+      sb.from("sched_jobs").select("*").lte("job_date", to).gte("end_date", from)
+        .order("job_date").order("sort_order").order("id"),
+      sb.from("sched_day_sheets").select("*").gte("sheet_date", from).lte("sheet_date", to),
+      sb.from("sched_leave").select("*").lte("from_date", to).gte("to_date", from)
+    ]);
+    for (const r of [j, sh, lv]) if (r.error) throw r.error;
+    return { jobs: j.data, sheets: sh.data, leave: lv.data };
+  },
+  async job(id){
+    const [j, c] = await Promise.all([
+      sb.from("sched_jobs").select("*").eq("id", id).single(),
+      sb.from("sched_job_checks").select("*").eq("job_id", id).maybeSingle()
+    ]);
+    if (j.error) throw j.error;
+    return { job: j.data, check: c.data || null };
+  },
+  async checks(ids){
+    if (!ids.length) return [];
+    const { data, error } = await sb.from("sched_job_checks").select("*").in("job_id", ids);
+    if (error) throw error; return data;
+  },
+  async rpc(fn, args){ const { data, error } = await sb.rpc(fn, args); if (error) throw error; return data; }
+};
+
+/* The crew and lorry a team has on a day: the day sheet if someone set it,
+   otherwise the team's usual people and lorry. */
+function crewFor(teamId, date, sheets){
+  const sh = sheets.find(s => String(s.team_id) === String(teamId) && s.sheet_date === date);
+  const usual = REF.staff.filter(p => p.active && String(p.team_id) === String(teamId));
+  const set = sh && (sh.driver_id || (sh.installer_ids || []).length);
+  return {
+    sheet: sh || null,
+    custom: !!set,
+    driver: set ? person(sh.driver_id) : usual.find(p => p.role === "driver"),
+    installers: set ? (sh.installer_ids || []).map(person).filter(Boolean)
+                    : usual.filter(p => p.role !== "driver"),
+    lorry: lorry(sh && sh.lorry_id ? sh.lorry_id : (team(teamId) || {}).lorry_id)
+  };
+}
+const crewIds = c => [c.driver, ...c.installers].filter(Boolean).map(p => p.id);
+
+/* Clashes worth flagging: the same person or lorry with two different teams
+   on the same day, or someone working while on leave. A team doing several
+   jobs in a day is normal and not a clash. */
+function findConflicts(jobs, sheets, leave, from, to){
+  const out = [];
+  for (let d = from; d <= to; d = addDays(d, 1)) {
+    const working = [...new Set(jobs.filter(j => j.team_id && j.status !== "cancelled" && between(d, j.job_date, j.end_date))
+                                     .map(j => String(j.team_id)))];
+    const seenP = {}, seenL = {};
+    for (const tid of working) {
+      const c = crewFor(tid, d, sheets);
+      for (const pid of crewIds(c)) {
+        if (seenP[pid] && seenP[pid] !== tid)
+          out.push({ date: d, text: `${person(pid).name} is in both ${team(seenP[pid]).name} and ${team(tid).name}` });
+        seenP[pid] = seenP[pid] || tid;
+        const off = leave.find(l => String(l.staff_id) === String(pid) && between(d, l.from_date, l.to_date));
+        if (off) out.push({ date: d, text: `${person(pid).name} is on leave (${esc(off.reason || "leave")}) but in ${team(tid).name}` });
+      }
+      if (c.lorry) {
+        if (seenL[c.lorry.id] && seenL[c.lorry.id] !== tid)
+          out.push({ date: d, text: `Lorry ${c.lorry.plate} is with both ${team(seenL[c.lorry.id]).name} and ${team(tid).name}` });
+        seenL[c.lorry.id] = seenL[c.lorry.id] || tid;
+      }
+    }
+  }
+  return out;
+}
+
+/* --------------------------------------------------------------------------
+   Navigation
+   -------------------------------------------------------------------------- */
+const route = () => location.hash.replace(/^#/, "").split("?")[0] || "/board";
+function nav(){
+  const r = route();
+  $("#nav").innerHTML = USER ? `
+    <a href="#/board" class="${r.startsWith("/board") || r.startsWith("/sheet") ? "on" : ""}">Schedule</a>
+    <a href="#/mine" class="${r === "/mine" ? "on" : ""}">My jobs</a>
+    ${IS_ADMIN ? `<a href="#/setup" class="${r.startsWith("/setup") ? "on" : ""}">Set-up</a>` : ""}
+    <button id="outBtn">Sign out</button>` : "";
+  const o = $("#outBtn");
+  if (o) o.onclick = async () => { await sb.auth.signOut(); USER = null; IS_ADMIN = false; location.hash = "#/board"; render(); };
+}
+
+/* --------------------------------------------------------------------------
+   Sign in
+   -------------------------------------------------------------------------- */
+function viewLogin(msg = ""){
+  return `<div class="page narrow" style="padding-top:50px"><div class="card card-pad">
+    <h2>Staff sign in</h2>
+    <p class="tiny muted" style="margin:6px 0 18px">Accounts are created by your system administrator.</p>
+    ${msg ? `<div class="err">${esc(msg)}</div>` : ""}
+    <div class="field"><label for="em">Email</label><input id="em" type="email" autocomplete="username"></div>
+    <div class="field"><label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password"></div>
+    <button class="btn btn-p btn-full" id="go">Sign in</button></div></div>`;
+}
+function wireLogin(){
+  const go = async () => {
+    $("#go").disabled = true; $("#go").textContent = "Signing in…";
+    const { data, error } = await sb.auth.signInWithPassword({ email: $("#em").value.trim(), password: $("#pw").value });
+    if (error) { $("#app").innerHTML = viewLogin(error.message); wireLogin(); return; }
+    USER = data.user; await afterSignIn(); render();
+  };
+  $("#go").onclick = go;
+  $("#pw").addEventListener("keydown", e => { if (e.key === "Enter") go(); });
+  $("#em").focus();
+}
+async function afterSignIn(){
+  try { IS_ADMIN = (await DB.rpc("is_admin")) === true; } catch (e) { IS_ADMIN = false; }
+  await DB.ref();
+}
+
+/* --------------------------------------------------------------------------
+   The board: month (the whiteboard), week, day
+   -------------------------------------------------------------------------- */
+function periodOf(mode, date){
+  const d = parse(date);
+  if (mode === "month") {
+    const first = new Date(d.getFullYear(), d.getMonth(), 1);
+    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    const from = addDays(iso(first), -first.getDay());
+    const to = addDays(iso(last), 6 - last.getDay());
+    return { from, to, label: first.toLocaleDateString("en-GB", { month: "long", year: "numeric" }), month: d.getMonth() };
+  }
+  if (mode === "week") {
+    const from = addDays(date, -d.getDay());
+    const to = addDays(from, 6);
+    return { from, to, label: `${fmtDay(from)} – ${fmtDay(to)}` };
+  }
+  return { from: date, to: date, label: fmtLong(date) };
+}
+function shiftPeriod(dir){
+  const d = parse(VIEW.date);
+  if (VIEW.mode === "month") { d.setDate(1); d.setMonth(d.getMonth() + dir); }
+  else d.setDate(d.getDate() + (VIEW.mode === "week" ? 7 : 1) * dir);
+  VIEW.date = iso(d);
+}
+function filterJobs(jobs){
+  const q = VIEW.q.trim().toLowerCase();
+  return jobs.filter(j =>
+    (!VIEW.team || (VIEW.team === "none" ? !j.team_id : String(j.team_id) === VIEW.team)) &&
+    (!VIEW.type || j.job_type === VIEW.type) &&
+    (!q || [j.title, j.customer_name, j.customer_phone, j.area, j.address, j.doc_no, j.serial_no, j.dealer, j.sales_rep, j.product]
+             .some(v => String(v || "").toLowerCase().includes(q))));
+}
+const onDay = (jobs, d) => jobs.filter(j => between(d, j.job_date, j.end_date));
+const dayTag = (j, d) => j.end_date > j.job_date
+  ? ` <span class="tag" style="background:#EEF1F3;color:var(--grey)">day ${Math.round((parse(d) - parse(j.job_date)) / 864e5) + 1}/${Math.round((parse(j.end_date) - parse(j.job_date)) / 864e5) + 1}</span>` : "";
+
+let BOARD = null;   // last loaded data, for redraws and modals
+async function viewBoard(){
+  const p = periodOf(VIEW.mode, VIEW.date);
+  BOARD = { ...(await DB.range(p.from, p.to)), p };
+  return boardHTML();
+}
+function boardHTML(){
+  const { p } = BOARD;
+  const jobs = filterJobs(BOARD.jobs);
+  const conflicts = findConflicts(BOARD.jobs, BOARD.sheets, BOARD.leave, p.from, p.to);
+  const small = window.innerWidth < 760;
+  let body;
+  if (VIEW.mode === "month") body = small ? agendaHTML(jobs, p) : monthHTML(jobs, p);
+  else if (VIEW.mode === "week") body = weekHTML(jobs, p);
+  else body = dayHTML(jobs, VIEW.date);
+
+  return `<div class="page">
+    <div class="calbar">
+      <button class="btn btn-s btn-sm" id="prev" aria-label="Previous">&larr;</button>
+      <button class="btn btn-s btn-sm" id="today">Today</button>
+      <button class="btn btn-s btn-sm" id="next" aria-label="Next">&rarr;</button>
+      <h1>${esc(p.label)}</h1>
+      <span class="sp"></span>
+      <div class="seg" role="group" aria-label="View">
+        ${["month", "week", "day"].map(m => `<button data-mode="${m}" class="${VIEW.mode === m ? "on" : ""}">${m[0].toUpperCase() + m.slice(1)}</button>`).join("")}
+      </div>
+    </div>
+    <div class="calbar">
+      <select id="fTeam" aria-label="Team"><option value="">All teams</option>
+        ${REF.teams.filter(t => t.active).map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join("")}
+        <option value="none">No team</option></select>
+      <select id="fType" aria-label="Type"><option value="">All job types</option>
+        ${JOB_TYPES.map(t => `<option value="${t[0]}">${t[1]}</option>`).join("")}</select>
+      <input id="fQ" type="search" placeholder="Search name, area, D/O, S/N" value="${esc(VIEW.q)}">
+      <span class="sp"></span>
+      ${IS_ADMIN ? `<button class="btn btn-p btn-sm" id="newJob">+ New job</button>` : ""}
+    </div>
+    ${conflicts.length ? `<details class="conflicts"><summary>${conflicts.length} clash${conflicts.length > 1 ? "es" : ""} to check in this ${VIEW.mode}</summary>
+      <ul>${conflicts.map(c => `<li><b>${fmtDay(c.date)}</b> — ${c.text}</li>`).join("")}</ul></details>` : ""}
+    <div id="boardBody">${body}</div>
+  </div>`;
+}
+function jobLine(j, d, i){
+  const st = j.status;
+  return `<button class="jl ${st}" style="--tc:${teamColour(j.team_id)}" data-job="${j.id}" title="${esc(j.title)}">
+    ${i}) ${st === "done" ? "✓ " : ""}${esc(j.title)}${j.lifting !== "none" ? `<span class="tag">${j.lifting === "crane" ? "CRANE" : "SKY"}</span>` : ""}</button>`;
+}
+function monthHTML(jobs, p){
+  const today = todayISO();
+  let html = `<div class="month">${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => `<div class="dow">${d}</div>`).join("")}`;
+  for (let d = p.from; d <= p.to; d = addDays(d, 1)) {
+    const list = onDay(jobs, d);
+    const out = parse(d).getMonth() !== p.month;
+    const shown = list.slice(0, 6);
+    html += `<div class="cell${out ? " out" : ""}${d === today ? " today" : ""}">
+      <div class="dnum"><button data-day="${d}" title="Open this day">${parse(d).getDate()}</button>
+        ${IS_ADMIN ? `<button class="add" data-new="${d}" title="Add a job on this day">+</button>` : ""}</div>
+      ${shown.map((j, i) => jobLine(j, d, i + 1)).join("")}
+      ${list.length > 6 ? `<button class="more" data-day="${d}">+${list.length - 6} more</button>` : ""}
+    </div>`;
+  }
+  return html + `</div>`;
+}
+function agendaHTML(jobs, p){
+  const today = todayISO(); let html = `<div class="agenda">`; let any = false;
+  for (let d = p.from; d <= p.to; d = addDays(d, 1)) {
+    const list = onDay(jobs, d); if (!list.length) continue; any = true;
+    html += `<div class="aday${d === today ? " today" : ""}"><h3><button class="lnk" data-day="${d}">${fmtDay(d)}</button><span class="muted tiny">${list.length} job${list.length > 1 ? "s" : ""}</span></h3>
+      ${list.map(j => jobCard(j, d)).join("")}</div>`;
+  }
+  return html + (any ? "" : `<div class="card empty">No jobs this month.</div>`) + `</div>`;
+}
+function jobCard(j, d){
+  return `<button class="jc ${j.status}" style="--tc:${teamColour(j.team_id)}" data-job="${j.id}">
+    <b>${j.status === "done" ? "✓ " : ""}${esc(j.title)}${dayTag(j, d)}</b>
+    <span class="m">${esc(slotLabel(j))}${j.team_id ? " · " + esc((team(j.team_id) || {}).name || "") : ""}${liftText(j) ? " · " + liftText(j) : ""}</span></button>`;
+}
+function weekHTML(jobs, p){
+  const today = todayISO(); let html = `<div class="week">`;
+  for (let d = p.from; d <= p.to; d = addDays(d, 1)) {
+    const list = onDay(jobs, d);
+    html += `<div class="wcol${d === today ? " today" : ""}"><h3><button data-day="${d}">${fmtDay(d)}</button>
+      ${IS_ADMIN ? `<button data-new="${d}" title="Add a job">+</button>` : ""}</h3>
+      ${list.map(j => jobCard(j, d)).join("") || `<div class="tiny muted" style="padding:10px">—</div>`}</div>`;
+  }
+  return html + `</div>`;
+}
+function dayHTML(jobs, d){
+  const list = onDay(jobs, d);
+  const teams = REF.teams.filter(t => t.active && (!VIEW.team || String(t.id) === VIEW.team));
+  let html = "";
+  for (const t of teams) {
+    const tj = list.filter(j => String(j.team_id) === String(t.id));
+    const c = crewFor(t.id, d, BOARD.sheets);
+    if (!tj.length && VIEW.team !== String(t.id)) continue;
+    html += `<div class="teamblock" style="--tc:${t.colour}">
+      <div class="hd"><div><b style="font-size:1.05rem">${esc(t.name)}</b>
+        <div class="crew">Driver: <b>${esc(c.driver ? c.driver.name : "—")}</b> · Installers: <b>${esc(c.installers.map(p => p.name).join(", ") || "—")}</b> · Lorry: <b>${esc(c.lorry ? c.lorry.plate : "—")}</b>${c.custom ? "" : ` <span class="tiny">(usual crew)</span>`}</div></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${IS_ADMIN ? `<button class="btn btn-s btn-sm" data-crew="${t.id}">Crew &amp; lorry</button>` : ""}
+          <a class="btn btn-p btn-sm" href="#/sheet/${d}/${t.id}">Day sheet</a></div></div>
+      ${tj.map(j => jobRow(j, d)).join("") || `<div class="tiny muted" style="padding:12px 16px">No jobs.</div>`}</div>`;
+  }
+  const none = list.filter(j => !j.team_id);
+  if (none.length && (!VIEW.team || VIEW.team === "none"))
+    html += `<div class="teamblock"><div class="hd"><b>No team</b></div>${none.map(j => jobRow(j, d)).join("")}</div>`;
+  return html || `<div class="card empty">No jobs on ${fmtDay(d)}.${IS_ADMIN ? ` <button class="lnk" data-new="${d}">Add one</button>` : ""}</div>`;
+}
+function jobRow(j, d){
+  return `<div class="jrow" data-job="${j.id}" role="button" tabindex="0">
+    <div class="slot">${esc(slotLabel(j))}</div>
+    <div><b>${esc(j.title)}</b>${dayTag(j, d)}
+      <div class="tiny muted">${esc([typeLabel(j.job_type), j.customer_name, j.area, j.doc_no, liftText(j)].filter(Boolean).join(" · "))}</div></div>
+    <div>${statusPill(j.status)}</div></div>`;
+}
+function wireBoard(){
+  $("#prev").onclick = () => { shiftPeriod(-1); render(); };
+  $("#next").onclick = () => { shiftPeriod(1); render(); };
+  $("#today").onclick = () => { VIEW.date = todayISO(); render(); };
+  $$("[data-mode]").forEach(b => b.onclick = () => { VIEW.mode = b.dataset.mode; render(); });
+  $("#fTeam").value = VIEW.team; $("#fType").value = VIEW.type;
+  $("#fTeam").onchange = e => { VIEW.team = e.target.value; redrawBoard(); };
+  $("#fType").onchange = e => { VIEW.type = e.target.value; redrawBoard(); };
+  $("#fQ").oninput = e => { VIEW.q = e.target.value; clearTimeout(window.__qT); window.__qT = setTimeout(redrawBoard, 200); };
+  const nj = $("#newJob"); if (nj) nj.onclick = () => openJobForm({ job_date: VIEW.mode === "day" ? VIEW.date : todayISO() });
+  wireBoardBody();
+}
+function redrawBoard(){
+  /* Only the calendar is redrawn, so the search box keeps its cursor. */
+  const tmp = document.createElement("div"); tmp.innerHTML = boardHTML();
+  $("#boardBody").replaceWith(tmp.querySelector("#boardBody"));
+  const oldC = $(".conflicts"), newC = tmp.querySelector(".conflicts");
+  if (oldC && newC) oldC.replaceWith(newC); else if (oldC) oldC.remove(); else if (newC) $("#boardBody").before(newC);
+  wireBoardBody();
+}
+function wireBoardBody(){
+  $$("[data-job]").forEach(b => {
+    b.onclick = () => openJob(Number(b.dataset.job));
+    b.onkeydown = e => { if (e.key === "Enter") openJob(Number(b.dataset.job)); };
+  });
+  $$("[data-day]").forEach(b => b.onclick = () => { VIEW.mode = "day"; VIEW.date = b.dataset.day; render(); });
+  $$("[data-new]").forEach(b => b.onclick = e => { e.stopPropagation(); openJobForm({ job_date: b.dataset.new }); });
+  $$("[data-crew]").forEach(b => b.onclick = () => openCrew(b.dataset.crew, VIEW.date, BOARD.sheets));
+}
+
+/* --------------------------------------------------------------------------
+   Modal
+   -------------------------------------------------------------------------- */
+function modal(html, colour){
+  const root = $("#modalRoot");
+  root.innerHTML = `<div class="modal" role="dialog" aria-modal="true"><div class="box" style="--tc:${colour || "var(--blue)"}">${html}</div></div>`;
+  const m = root.firstElementChild;
+  m.addEventListener("click", e => { if (e.target === m) closeModal(); });
+  m.querySelectorAll("[data-close]").forEach(b => b.onclick = closeModal);
+  document.addEventListener("keydown", escClose);
+  return m;
+}
+function escClose(e){ if (e.key === "Escape") closeModal(); }
+function closeModal(){ $("#modalRoot").innerHTML = ""; document.removeEventListener("keydown", escClose); }
+
+/* --------------------------------------------------------------------------
+   One job: view (status, site checklist) and edit
+   -------------------------------------------------------------------------- */
+async function openJob(id){
+  let data;
+  try { data = await DB.job(id); } catch (e) { alert(errMsg(e)); return; }
+  const j = data.job, c = data.check || {};
+  const t = team(j.team_id);
+  const showCheck = ["install", "service"].includes(j.job_type);
+  const yn = (name, val) => `<label><input type="radio" name="${name}" value="true"${val === true ? " checked" : ""}> Yes</label>
+                             <label><input type="radio" name="${name}" value="false"${val === false ? " checked" : ""}> No</label>`;
+  const m = modal(`
+    <div class="hd"><div><div class="tiny muted">${esc(typeLabel(j.job_type))}${t ? " · " + esc(t.name) : ""}</div><h2>${esc(j.title)}</h2></div>
+      <button class="x" data-close aria-label="Close">&times;</button></div>
+    <div class="bd">
+      <dl class="kv2">
+        <dt>When</dt><dd>${fmtDay(j.job_date)}${j.end_date > j.job_date ? " – " + fmtDay(j.end_date) : ""} · ${esc(slotLabel(j))}</dd>
+        ${j.customer_name ? `<dt>Customer</dt><dd>${esc(j.customer_name)}${j.customer_phone ? ` · <a style="white-space:nowrap" href="tel:${esc(j.customer_phone)}">${esc(j.customer_phone)}</a>` : ""}</dd>` : ""}
+        ${j.address || j.area ? `<dt>Address</dt><dd>${esc([j.address, j.area].filter(Boolean).join(", "))}</dd>` : ""}
+        ${j.dealer || j.sales_rep ? `<dt>Dealer / sales rep</dt><dd>${esc([j.dealer, j.sales_rep].filter(Boolean).join(" · "))}</dd>` : ""}
+        ${j.doc_no ? `<dt>D/O or S/R</dt><dd class="mono">${esc(j.doc_no)}</dd>` : ""}
+        ${j.product || j.serial_no ? `<dt>Product / S/N</dt><dd>${esc(j.product || "")}${j.serial_no ? ` <span class="mono">${esc(j.serial_no)}</span>` : ""}</dd>` : ""}
+        ${j.todo ? `<dt>To do</dt><dd>${esc(j.todo)}</dd>` : ""}
+        ${liftText(j) ? `<dt>Lifting</dt><dd><span class="pill a">${liftText(j)}</span></dd>` : ""}
+        ${j.notes ? `<dt>Notes</dt><dd>${esc(j.notes)}</dd>` : ""}
+        <dt>Last change</dt><dd class="tiny muted">${esc(j.updated_by || "")} · ${fmtWhen(j.updated_at)}</dd>
+      </dl>
+      <div style="margin-top:14px"><b>Status</b>
+        <div class="stbtns">${STATUSES.map(s => `<button data-st="${s[0]}" class="${j.status === s[0] ? "on" : ""}">${s[1]}</button>`).join("")}</div></div>
+      ${showCheck ? `<div class="chk"><b>Site checklist</b> ${c.done_by ? `<span class="tiny muted">— last saved by ${esc(c.done_by)}, ${fmtWhen(c.done_at)}</span>` : ""}
+        <div class="yn" style="margin-top:10px"><span>Wiring</span>${yn("c_wiring", c.wiring)}<input type="text" id="c_wiring_why" placeholder="If no, why?" value="${esc(c.wiring_why || "")}"></div>
+        <div class="yn"><span>½" cold &amp; hot supply</span>${yn("c_supply", c.supply)}<input type="text" id="c_supply_note" placeholder="P/M, or why not" value="${esc(c.supply_note || "")}"></div>
+        <div class="yn"><span>Tested</span>${yn("c_tested", c.tested)}<input type="number" id="c_psi" placeholder="Pressure (PSI)" min="0" step="0.5" value="${c.pressure_psi ?? ""}" style="max-width:150px"><input type="text" id="c_tested_why" placeholder="If no, why?" value="${esc(c.tested_why || "")}"></div>
+        <div class="yn"><span>Total pipe used (pcs)</span><input type="number" id="c_pipes" min="0" step="1" value="${c.pipes_used ?? ""}" style="max-width:120px"></div>
+        <div class="yn"><span>PLV</span>${yn("c_plv", c.plv)}</div>
+        <div class="yn"><span>Other</span><input type="text" id="c_other" value="${esc(c.other || "")}"></div>
+        <div id="cMsg"></div>
+        <button class="btn btn-s btn-sm" id="cSave">Save checklist</button></div>` : ""}
+      <div id="jMsg" style="margin-top:10px"></div>
+    </div>
+    <div class="ft">
+      ${IS_ADMIN ? `<button class="btn btn-d btn-sm" id="jDel">Delete</button><button class="btn btn-s btn-sm" id="jDup">Duplicate</button><button class="btn btn-s btn-sm" id="jEdit">Edit</button>` : ""}
+      <button class="btn btn-p btn-sm" data-close>Close</button></div>`, teamColour(j.team_id));
+
+  m.querySelectorAll("[data-st]").forEach(b => b.onclick = async () => {
+    try { await DB.rpc("sched_set_status", { p_id: j.id, p_status: b.dataset.st });
+          m.querySelectorAll("[data-st]").forEach(x => x.classList.toggle("on", x === b));
+          j.status = b.dataset.st; refreshUnder(); }
+    catch (e) { $("#jMsg").innerHTML = `<div class="err">${esc(errMsg(e))}</div>`; }
+  });
+  const radio = n => { const r = m.querySelector(`input[name=${n}]:checked`); return r ? r.value === "true" : null; };
+  const cs = m.querySelector("#cSave");
+  if (cs) cs.onclick = async () => {
+    cs.disabled = true;
+    try {
+      await DB.rpc("sched_save_check", { p_job_id: j.id, p_check: {
+        wiring: radio("c_wiring"), wiring_why: $("#c_wiring_why").value,
+        supply: radio("c_supply"), supply_note: $("#c_supply_note").value,
+        tested: radio("c_tested"), pressure_psi: $("#c_psi").value, tested_why: $("#c_tested_why").value,
+        pipes_used: $("#c_pipes").value, plv: radio("c_plv"), other: $("#c_other").value } });
+      $("#cMsg").innerHTML = `<div class="ok">Checklist saved.</div>`; refreshUnder();
+    } catch (e) { $("#cMsg").innerHTML = `<div class="err">${esc(errMsg(e))}</div>`; }
+    cs.disabled = false;
+  };
+  if (IS_ADMIN) {
+    $("#jEdit").onclick = () => openJobForm(j);
+    $("#jDup").onclick = () => { const copy = { ...j }; delete copy.id; copy.status = "scheduled"; openJobForm(copy); };
+    $("#jDel").onclick = async () => {
+      if (!confirm(`Delete "${j.title}"? This cannot be undone.`)) return;
+      try { await DB.rpc("sched_delete_job", { p_id: j.id }); closeModal(); render(); }
+      catch (e) { $("#jMsg").innerHTML = `<div class="err">${esc(errMsg(e))}</div>`; }
+    };
+  }
+}
+/* Keep the page under the modal up to date without closing the modal. */
+async function refreshUnder(){
+  const r = route();
+  if (r.startsWith("/board") && BOARD) { const p = BOARD.p; BOARD = { ...(await DB.range(p.from, p.to)), p }; redrawBoard(); }
+  else if (r.startsWith("/sheet") || r === "/mine") { const keep = $("#modalRoot").innerHTML; await render(true); $("#modalRoot").innerHTML = keep; }
+}
+
+function openJobForm(j){
+  const isNew = !j.id;
+  const v = k => esc(j[k] ?? "");
+  const m = modal(`
+    <div class="hd"><h2>${isNew ? "New job" : "Edit job"}</h2><button class="x" data-close aria-label="Close">&times;</button></div>
+    <div class="bd">
+      <div class="field"><label for="f_title">Title on the board</label>
+        <input id="f_title" value="${v("title")}" placeholder="e.g. MY60-S1 · Koh · Johor Bahru">
+        <div class="tiny muted" style="margin-top:4px">Short, like on the whiteboard. The details go below.</div></div>
+      <div class="row3">
+        <div class="field"><label for="f_date">Date</label><input id="f_date" type="date" value="${v("job_date")}"></div>
+        <div class="field"><label for="f_end">Until (multi-day jobs)</label><input id="f_end" type="date" value="${j.end_date && j.end_date !== j.job_date ? v("end_date") : ""}"></div>
+        <div class="field"><label for="f_slot">Time</label><select id="f_slot">${SLOTS.map(s => `<option value="${s[0]}">${s[1]}</option>`).join("")}</select></div>
+      </div>
+      <div class="field" id="f_timerow" style="display:none;max-width:200px"><label for="f_time">Start time</label><input id="f_time" type="time" value="${j.start_time ? esc(j.start_time.slice(0, 5)) : ""}"></div>
+      <div class="row3">
+        <div class="field"><label for="f_type">Type</label><select id="f_type">${JOB_TYPES.map(t => `<option value="${t[0]}">${t[1]}</option>`).join("")}</select></div>
+        <div class="field"><label for="f_team">Team</label><select id="f_team"><option value="">No team</option>${REF.teams.filter(t => t.active || String(t.id) === String(j.team_id)).map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join("")}</select></div>
+        <div class="field"><label for="f_status">Status</label><select id="f_status">${STATUSES.map(s => `<option value="${s[0]}">${s[1]}</option>`).join("")}</select></div>
+      </div>
+      <fieldset class="addr"><legend>Customer and site</legend>
+        <div class="row2">
+          <div class="field"><label for="f_cust">Owner / customer</label><input id="f_cust" value="${v("customer_name")}"></div>
+          <div class="field"><label for="f_tel">Tel</label><input id="f_tel" value="${v("customer_phone")}" placeholder="012-345 6789"></div></div>
+        <div class="field"><label for="f_addr">Address</label><input id="f_addr" value="${v("address")}"></div>
+        <div class="field"><label for="f_area">Area</label><input id="f_area" value="${v("area")}" placeholder="e.g. Puchong"></div>
+      </fieldset>
+      <div class="row2">
+        <div class="field"><label for="f_dealer">Dealer</label><input id="f_dealer" value="${v("dealer")}"></div>
+        <div class="field"><label for="f_rep">Sales rep</label><input id="f_rep" value="${v("sales_rep")}"></div></div>
+      <div class="row3">
+        <div class="field"><label for="f_doc">D/O, S/O or S/R no.</label><input id="f_doc" class="mono" value="${v("doc_no")}"></div>
+        <div class="field"><label for="f_prod">Product / item</label><input id="f_prod" value="${v("product")}" placeholder="e.g. MY60-S1"></div>
+        <div class="field"><label for="f_sn">S/N</label><input id="f_sn" class="mono" value="${v("serial_no")}"></div></div>
+      <div class="field"><label for="f_todo">To do</label><textarea id="f_todo" rows="2">${v("todo")}</textarea></div>
+      <div class="row2">
+        <div class="field"><label for="f_lift">Crane or skylift needed?</label><select id="f_lift">
+          <option value="none">Not needed</option><option value="skylift">Skylift</option><option value="crane">Crane</option></select></div>
+        <div class="field" id="f_tonsrow" style="visibility:hidden"><label for="f_tons">Crane capacity (tons)</label><input id="f_tons" type="number" min="0.5" max="500" step="0.5" value="${v("crane_tons")}"></div></div>
+      <div class="field"><label for="f_notes">Notes</label><textarea id="f_notes" rows="2">${v("notes")}</textarea></div>
+      <div id="fMsg"></div>
+    </div>
+    <div class="ft"><button class="btn btn-s btn-sm" data-close>Cancel</button><button class="btn btn-p btn-sm" id="fSave">${isNew ? "Add job" : "Save changes"}</button></div>`,
+    teamColour(j.team_id));
+  $("#f_slot").value = j.time_slot || "full"; $("#f_type").value = j.job_type || "install";
+  $("#f_team").value = j.team_id ?? (VIEW.team && VIEW.team !== "none" ? VIEW.team : "");
+  $("#f_status").value = j.status || "scheduled"; $("#f_lift").value = j.lifting || "none";
+  const sync = () => {
+    $("#f_timerow").style.display = $("#f_slot").value === "time" ? "" : "none";
+    $("#f_tonsrow").style.visibility = $("#f_lift").value === "crane" ? "visible" : "hidden";
+  };
+  $("#f_slot").onchange = sync; $("#f_lift").onchange = sync; sync();
+  $("#f_title").focus();
+  $("#fSave").onclick = async () => {
+    const b = $("#fSave"); b.disabled = true;
+    try {
+      const id = await DB.rpc("sched_save_job", { p_job: {
+        id: j.id || null, title: $("#f_title").value, job_date: $("#f_date").value,
+        end_date: $("#f_end").value || $("#f_date").value, time_slot: $("#f_slot").value, start_time: $("#f_time").value,
+        job_type: $("#f_type").value, team_id: $("#f_team").value, status: $("#f_status").value,
+        customer_name: $("#f_cust").value, customer_phone: $("#f_tel").value, address: $("#f_addr").value, area: $("#f_area").value,
+        dealer: $("#f_dealer").value, sales_rep: $("#f_rep").value, doc_no: $("#f_doc").value,
+        product: $("#f_prod").value, serial_no: $("#f_sn").value, todo: $("#f_todo").value,
+        lifting: $("#f_lift").value, crane_tons: $("#f_tons").value, notes: $("#f_notes").value } });
+      closeModal(); await render(); openJob(id);
+    } catch (e) { $("#fMsg").innerHTML = `<div class="err">${esc(errMsg(e))}</div>`; b.disabled = false; }
+  };
+}
+
+/* Crew and lorry for one team on one day (admin). */
+function openCrew(teamId, date, sheets){
+  const t = team(teamId), c = crewFor(teamId, date, sheets);
+  const active = REF.staff.filter(p => p.active);
+  const chosen = new Set(c.installers.map(p => String(p.id)));
+  const m = modal(`
+    <div class="hd"><div><div class="tiny muted">${fmtLong(date)}</div><h2>${esc(t.name)} — crew &amp; lorry</h2></div><button class="x" data-close>&times;</button></div>
+    <div class="bd">
+      <div class="row2">
+        <div class="field"><label for="cr_driver">Driver</label><select id="cr_driver"><option value="">—</option>
+          ${active.map(p => `<option value="${p.id}"${c.driver && c.driver.id === p.id ? " selected" : ""}>${esc(p.name)}</option>`).join("")}</select></div>
+        <div class="field"><label for="cr_lorry">Lorry</label><select id="cr_lorry"><option value="">—</option>
+          ${REF.lorries.filter(l => l.active).map(l => `<option value="${l.id}"${c.lorry && c.lorry.id === l.id ? " selected" : ""}>${esc(l.plate)}${l.label ? " · " + esc(l.label) : ""}</option>`).join("")}</select></div>
+      </div>
+      <label>Installers</label>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px 14px;margin-bottom:12px">
+        ${active.filter(p => p.role !== "office").map(p => `<label style="display:flex;gap:8px;align-items:center;font-weight:500;margin:0">
+          <input type="checkbox" data-inst="${p.id}"${chosen.has(String(p.id)) ? " checked" : ""}> ${esc(p.name)}
+          <span class="tiny muted">${esc((team(p.team_id) || {}).name || "")}</span></label>`).join("")}
+      </div>
+      <div class="tiny muted">${c.custom ? "Set for this day." : "Showing the team's usual crew. Saving sets it for this day only."}</div>
+      <div id="crMsg" style="margin-top:10px"></div>
+    </div>
+    <div class="ft"><button class="btn btn-s btn-sm" id="crCopy">Same as previous day</button><button class="btn btn-s btn-sm" data-close>Cancel</button><button class="btn btn-p btn-sm" id="crSave">Save</button></div>`, t.colour);
+  const save = async payload => {
+    try { await DB.rpc("sched_save_sheet", { p_date: date, p_team_id: Number(teamId), p_sheet: payload }); closeModal(); render(); }
+    catch (e) { $("#crMsg").innerHTML = `<div class="err">${esc(errMsg(e))}</div>`; }
+  };
+  $("#crSave").onclick = () => save({ driver_id: $("#cr_driver").value, lorry_id: $("#cr_lorry").value,
+    installer_ids: $$("[data-inst]:checked").map(x => x.dataset.inst) });
+  $("#crCopy").onclick = async () => {
+    const prev = addDays(date, -1);
+    const { data } = await sb.from("sched_day_sheets").select("*").eq("sheet_date", prev).eq("team_id", teamId).maybeSingle();
+    const pc = crewFor(teamId, prev, data ? [data] : []);
+    save({ driver_id: pc.driver ? pc.driver.id : "", lorry_id: pc.lorry ? pc.lorry.id : "", installer_ids: pc.installers.map(p => p.id) });
+  };
+}
+
+/* --------------------------------------------------------------------------
+   Day sheet: the job sheet the team takes out, on screen and printed
+   -------------------------------------------------------------------------- */
+async function viewSheet(date, teamId){
+  const t = team(teamId);
+  if (!t) return `<div class="page"><div class="card empty">Team not found.</div></div>`;
+  const data = await DB.range(date, date);
+  const jobs = data.jobs.filter(j => String(j.team_id) === String(teamId) && j.status !== "cancelled");
+  const checks = await DB.checks(jobs.map(j => j.id));
+  const chk = id => checks.find(c => c.job_id === id) || {};
+  const c = crewFor(teamId, date, data.sheets);
+  const sh = c.sheet || {};
+  const yn = v => v === true ? "Yes" : v === false ? "No" : `<span class="sq"></span>Yes <span class="sq"></span>No`;
+  const rows = jobs.map((j, i) => {
+    const k = chk(j.id);
+    return `<tr>
+      <td><b>${i + 1}</b><div class="tiny muted">${esc(slotLabel(j))}</div></td>
+      <td class="mono" style="white-space:nowrap">${esc(j.job_type === "site_visit" ? "SITE VISIT" : (j.doc_no || ""))}${j.job_type !== "site_visit" && !j.doc_no ? `<span class="muted">—</span>` : ""}</td>
+      <td>${j.dealer ? `Dealer: <b>${esc(j.dealer)}</b><br>` : ""}${j.sales_rep ? `Sales rep: <b>${esc(j.sales_rep)}</b>` : ""}</td>
+      <td>${j.customer_name ? `Owner: <b>${esc(j.customer_name)}</b><br>` : ""}${j.customer_phone ? `Tel: ${esc(j.customer_phone)}<br>` : ""}${esc([j.address, j.area].filter(Boolean).join(", "))}</td>
+      <td>${esc(j.product || "")}${j.serial_no ? `<br><span class="mono">${esc(j.serial_no)}</span>` : ""}</td>
+      <td>${esc(j.title)}${j.todo ? `<br>${esc(j.todo)}` : ""}${liftText(j) ? `<br><span class="pill a">${liftText(j)}</span>` : ""}</td>
+      <td class="remarks">${["install", "service"].includes(j.job_type) ? `
+        <div>Wiring: ${yn(k.wiring)}${k.wiring_why ? " — " + esc(k.wiring_why) : ""}</div>
+        <div>½" cold &amp; hot supply: ${yn(k.supply)}${k.supply_note ? " — " + esc(k.supply_note) : ""}</div>
+        <div>Tested: ${yn(k.tested)} · ${k.pressure_psi != null ? esc(k.pressure_psi) : "____"} PSI</div>
+        <div>Total pipe used: ${k.pipes_used != null ? esc(k.pipes_used) : "____"} pcs</div>
+        <div>PLV: ${yn(k.plv)}</div>${k.other ? `<div>Other: ${esc(k.other)}</div>` : ""}` : `<span class="muted">—</span>`}
+        <div class="noprint" style="margin-top:6px"><button class="btn btn-s btn-sm" data-job="${j.id}">${k.done_by ? "Update" : "Fill in"} / status</button> ${statusPill(j.status)}</div></td>
+    </tr>`;
+  }).join("");
+  const sign = (what, label, by, at) => `<div class="sign"><div class="tiny muted">${label}</div>
+    ${by ? `<div class="who">✓ ${esc(by)}</div><div class="tiny muted">${fmtWhen(at)}</div>
+            <button class="lnk noprint" data-unsign="${what}">Undo</button>`
+         : `<div class="onlyprint sigline"></div><button class="btn btn-s btn-sm noprint" data-sign="${what}">Sign</button>`}</div>`;
+  return `<div class="page">
+    <div class="calbar noprint">
+      <a class="btn btn-s btn-sm" href="#/board">&larr; Schedule</a>
+      <a class="btn btn-s btn-sm" href="#/sheet/${addDays(date, -1)}/${teamId}" aria-label="Previous day">&larr;</a>
+      <a class="btn btn-s btn-sm" href="#/sheet/${addDays(date, 1)}/${teamId}" aria-label="Next day">&rarr;</a>
+      <select id="shTeam" aria-label="Team">${REF.teams.filter(x => x.active).map(x => `<option value="${x.id}"${String(x.id) === String(teamId) ? " selected" : ""}>${esc(x.name)}</option>`).join("")}</select>
+      <span class="sp"></span>
+      ${IS_ADMIN ? `<button class="btn btn-s btn-sm" id="shCrew">Crew &amp; lorry</button>` : ""}
+      <button class="btn btn-p btn-sm" id="shPrint">Print</button>
+    </div>
+    <div class="card" style="border-top:5px solid ${t.colour}">
+      <div class="sec-h"><span>Job sheet — ${esc(t.name)}</span><span class="mono" style="font-size:.95rem">${fmtLong(date)}</span></div>
+      <div class="sheethd">
+        <div><div class="k">Lorry driver</div><div class="v">${esc(c.driver ? c.driver.name : "—")}</div></div>
+        <div><div class="k">Installers</div><div class="v">${esc(c.installers.map(p => p.name).join(", ") || "—")}</div></div>
+        <div><div class="k">Lorry number</div><div class="v">${esc(c.lorry ? c.lorry.plate : "—")}</div></div>
+        <div><div class="k">Fitting sets loaded</div><div class="v" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          MY-60 <input id="s60" type="number" min="0" value="${sh.my60_sets ?? ""}" style="width:64px;padding:5px 7px">
+          MY-40 <input id="s40" type="number" min="0" value="${sh.my40_sets ?? ""}" style="width:64px;padding:5px 7px"></div></div>
+        <div style="grid-column:1 / -1"><div class="k">Others loaded</div>
+          <div style="display:flex;gap:8px"><input id="sOth" value="${esc(sh.others || "")}" style="padding:7px 10px">
+          <button class="btn btn-s btn-sm noprint" id="sSave">Save</button></div><div id="sMsg"></div></div>
+      </div>
+      <div class="tablewrap" style="border-left:0;border-right:0;border-radius:0">
+        <table class="sheet"><thead><tr><th>Job</th><th>D/O or S/R</th><th>Contact</th><th>Address</th><th>S/N or item</th><th>To do</th><th>Remarks</th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="7" class="empty">No jobs for ${esc(t.name)} on this day.</td></tr>`}</tbody></table></div>
+      <div class="signs">
+        ${sign("goods_loaded", "Goods loaded in good condition", sh.goods_loaded_by, sh.goods_loaded_at)}
+        ${sign("checked", "Checked by", sh.checked_by, sh.checked_at)}
+        ${sign("verified", "Verified by", sh.verified_by, sh.verified_at)}
+      </div>
+    </div></div>`;
+}
+function wireSheet(date, teamId){
+  $("#shTeam").onchange = e => { location.hash = `#/sheet/${date}/${e.target.value}`; };
+  $("#shPrint").onclick = () => window.print();
+  const cr = $("#shCrew");
+  if (cr) cr.onclick = async () => { const d = await DB.range(date, date); openCrew(teamId, date, d.sheets); };
+  $("#sSave").onclick = async () => {
+    try { await DB.rpc("sched_save_sheet", { p_date: date, p_team_id: Number(teamId),
+            p_sheet: { my60_sets: $("#s60").value, my40_sets: $("#s40").value, others: $("#sOth").value } });
+          $("#sMsg").innerHTML = `<div class="ok" style="margin:8px 0 0">Saved.</div>`; }
+    catch (e) { $("#sMsg").innerHTML = `<div class="err" style="margin:8px 0 0">${esc(errMsg(e))}</div>`; }
+  };
+  $$("[data-sign]").forEach(b => b.onclick = () => signSheet(date, teamId, b.dataset.sign, true));
+  $$("[data-unsign]").forEach(b => b.onclick = () => signSheet(date, teamId, b.dataset.unsign, false));
+  $$("[data-job]").forEach(b => b.onclick = () => openJob(Number(b.dataset.job)));
+}
+async function signSheet(date, teamId, what, on){
+  try { await DB.rpc("sched_sign_sheet", { p_date: date, p_team_id: Number(teamId), p_what: what, p_on: on }); render(); }
+  catch (e) { alert(errMsg(e)); }
+}
+
+/* --------------------------------------------------------------------------
+   My jobs: for staff whose login is linked in Set-up
+   -------------------------------------------------------------------------- */
+async function viewMine(){
+  const me = REF.staff.find(p => p.login_email && p.login_email === String(USER.email || "").toLowerCase());
+  if (!me) return `<div class="page narrow"><div class="card card-pad"><h2>My jobs</h2>
+    <p class="muted">Your login is not linked to a person in the staff list yet. An admin can link it in Set-up → Staff (login email).</p></div></div>`;
+  const from = todayISO(), to = addDays(from, 13);
+  const data = await DB.range(from, to);
+  let html = "";
+  for (let d = from; d <= to; d = addDays(d, 1)) {
+    const myTeams = REF.teams.filter(t => crewIds(crewFor(t.id, d, data.sheets)).includes(me.id)).map(t => String(t.id));
+    const list = onDay(data.jobs, d).filter(j => myTeams.includes(String(j.team_id)) && j.status !== "cancelled");
+    if (!list.length) continue;
+    html += `<div class="aday${d === from ? " today" : ""}"><h3>${fmtDay(d)}<span class="tiny">${myTeams.map(id => `<a href="#/sheet/${d}/${id}">${esc(team(id).name)} sheet</a>`).join(" · ")}</span></h3>
+      ${list.map(j => jobCard(j, d)).join("")}</div>`;
+  }
+  return `<div class="page narrow"><h1 style="margin-bottom:6px">My jobs</h1>
+    <p class="muted tiny" style="margin:0 0 16px">${esc(me.name)} · the next 14 days</p>
+    <div class="agenda">${html || `<div class="card empty">No jobs for you in the next 14 days.</div>`}</div></div>`;
+}
+
+/* --------------------------------------------------------------------------
+   Set-up (admins): teams, staff, lorries, leave, admins
+   -------------------------------------------------------------------------- */
+let SETUP_TAB = "teams";
+async function viewSetup(){
+  if (!IS_ADMIN) return `<div class="page"><div class="card empty">Only admins can change the set-up.</div></div>`;
+  await DB.ref();
+  const tabs = [["teams", "Teams"], ["staff", "Staff"], ["lorries", "Lorries"], ["leave", "Leave"], ["admins", "Admins"]];
+  let body = "";
+  if (SETUP_TAB === "teams") {
+    body = `<table><thead><tr><th>Team</th><th>Colour</th><th>Usual lorry</th><th>Order</th><th>Active</th><th></th></tr></thead><tbody>
+      ${[...REF.teams, { id: "", name: "", colour: "#006C9C", sort_order: REF.teams.length + 1, active: true }].map(t => `<tr data-row="${t.id}">
+        <td><input data-f="name" value="${esc(t.name)}" placeholder="${t.id ? "" : "New team name"}"></td>
+        <td style="width:90px"><input data-f="colour" type="color" value="${esc(t.colour)}" style="padding:2px;height:42px"></td>
+        <td><select data-f="lorry_id"><option value="">—</option>${REF.lorries.map(l => `<option value="${l.id}"${String(l.id) === String(t.lorry_id) ? " selected" : ""}>${esc(l.plate)}</option>`).join("")}</select></td>
+        <td style="width:90px"><input data-f="sort_order" type="number" value="${esc(t.sort_order)}"></td>
+        <td style="width:70px;text-align:center"><input data-f="active" type="checkbox"${t.active ? " checked" : ""}></td>
+        <td style="width:100px"><button class="btn btn-s btn-sm" data-save="sched_teams">${t.id ? "Save" : "Add"}</button></td></tr>`).join("")}</tbody></table>`;
+  } else if (SETUP_TAB === "staff") {
+    body = `<table><thead><tr><th>Name</th><th>Phone</th><th>Role</th><th>Usual team</th><th>Login email (for "My jobs")</th><th>Active</th><th></th></tr></thead><tbody>
+      ${[...REF.staff, { id: "", name: "", role: "installer", active: true }].map(p => `<tr data-row="${p.id}">
+        <td><input data-f="name" value="${esc(p.name)}" placeholder="${p.id ? "" : "New person"}"></td>
+        <td><input data-f="phone" value="${esc(p.phone || "")}"></td>
+        <td><select data-f="role">${ROLES.map(r => `<option value="${r[0]}"${p.role === r[0] ? " selected" : ""}>${r[1]}</option>`).join("")}</select></td>
+        <td><select data-f="team_id"><option value="">—</option>${REF.teams.map(t => `<option value="${t.id}"${String(t.id) === String(p.team_id) ? " selected" : ""}>${esc(t.name)}</option>`).join("")}</select></td>
+        <td><input data-f="login_email" type="email" value="${esc(p.login_email || "")}" placeholder="optional"></td>
+        <td style="width:70px;text-align:center"><input data-f="active" type="checkbox"${p.active ? " checked" : ""}></td>
+        <td style="width:100px"><button class="btn btn-s btn-sm" data-save="sched_staff">${p.id ? "Save" : "Add"}</button></td></tr>`).join("")}</tbody></table>`;
+  } else if (SETUP_TAB === "lorries") {
+    body = `<table><thead><tr><th>Plate</th><th>Description</th><th>Active</th><th></th></tr></thead><tbody>
+      ${[...REF.lorries, { id: "", plate: "", label: "", active: true }].map(l => `<tr data-row="${l.id}">
+        <td><input data-f="plate" class="mono" value="${esc(l.plate)}" placeholder="${l.id ? "" : "New lorry plate"}"></td>
+        <td><input data-f="label" value="${esc(l.label || "")}"></td>
+        <td style="width:70px;text-align:center"><input data-f="active" type="checkbox"${l.active ? " checked" : ""}></td>
+        <td style="width:100px"><button class="btn btn-s btn-sm" data-save="sched_lorries">${l.id ? "Save" : "Add"}</button></td></tr>`).join("")}</tbody></table>`;
+  } else if (SETUP_TAB === "leave") {
+    const { data, error } = await sb.from("sched_leave").select("*").gte("to_date", addDays(todayISO(), -30)).order("from_date");
+    if (error) throw error;
+    body = `<table><thead><tr><th>Person</th><th>From</th><th>To</th><th>Reason</th><th></th></tr></thead><tbody>
+      ${data.map(l => `<tr><td>${esc((person(l.staff_id) || {}).name || "—")}</td><td>${fmtDay(l.from_date)}</td><td>${fmtDay(l.to_date)}</td><td>${esc(l.reason || "")}</td>
+        <td style="width:100px"><button class="btn btn-d btn-sm" data-delleave="${l.id}">Remove</button></td></tr>`).join("")}
+      <tr><td><select id="lv_p"><option value="">Choose…</option>${REF.staff.filter(p => p.active).map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select></td>
+        <td><input id="lv_f" type="date"></td><td><input id="lv_t" type="date"></td><td><input id="lv_r" placeholder="e.g. Annual leave"></td>
+        <td><button class="btn btn-p btn-sm" id="lvAdd">Add</button></td></tr></tbody></table>`;
+  } else {
+    const { data, error } = await sb.from("admins").select("*").order("email");
+    if (error) throw error;
+    body = `<table><thead><tr><th>Admin login email</th><th>Added</th><th></th></tr></thead><tbody>
+      ${data.map(a => `<tr><td>${esc(a.email)}</td><td class="tiny muted">${a.added_at ? fmtWhen(a.added_at) : ""}</td>
+        <td style="width:150px"><button class="btn btn-d btn-sm" data-unadmin="${esc(a.email)}">Remove</button></td></tr>`).join("")}
+      <tr><td><input id="ad_e" type="email" placeholder="Staff login email"></td><td></td><td style="white-space:nowrap"><button class="btn btn-p btn-sm" id="adAdd">Make admin</button></td></tr></tbody></table>
+      <p class="tiny muted" style="padding:10px 16px;margin:0">Logins themselves are created in Supabase (Authentication → Users).</p>`;
+  }
+  return `<div class="page"><h1 style="margin-bottom:14px">Set-up</h1>
+    <div class="tabs">${tabs.map(t => `<button class="tab${SETUP_TAB === t[0] ? " on" : ""}" data-tab="${t[0]}">${t[1]}</button>`).join("")}</div>
+    <div id="suMsg"></div><div class="tablewrap">${body}</div></div>`;
+}
+function wireSetup(){
+  const msg = (h) => { $("#suMsg").innerHTML = h; };
+  $$("[data-tab]").forEach(b => b.onclick = () => { SETUP_TAB = b.dataset.tab; render(); });
+  $$("[data-save]").forEach(b => b.onclick = async () => {
+    const tr = b.closest("tr"), id = tr.dataset.row, table = b.dataset.save, row = {};
+    tr.querySelectorAll("[data-f]").forEach(el => {
+      const f = el.dataset.f;
+      row[f] = el.type === "checkbox" ? el.checked : (el.value.trim() === "" ? null : el.value.trim());
+    });
+    if (row.login_email) row.login_email = row.login_email.toLowerCase();
+    if (row.sort_order != null) row.sort_order = Number(row.sort_order);
+    const first = row.name ?? row.plate;
+    if (!first) { msg(`<div class="err">Please fill in the ${table === "sched_lorries" ? "plate" : "name"}.</div>`); return; }
+    const q = id ? sb.from(table).update(row).eq("id", id) : sb.from(table).insert(row);
+    const { error } = await q;
+    if (error) { msg(`<div class="err">${esc(error.message)}</div>`); return; }
+    await DB.ref(); render();
+  });
+  const la = $("#lvAdd");
+  if (la) la.onclick = async () => {
+    const row = { staff_id: $("#lv_p").value, from_date: $("#lv_f").value, to_date: $("#lv_t").value || $("#lv_f").value,
+                  reason: $("#lv_r").value || null, created_by: String(USER.email || "").toLowerCase() };
+    if (!row.staff_id || !row.from_date) { msg(`<div class="err">Choose the person and the first day.</div>`); return; }
+    const { error } = await sb.from("sched_leave").insert(row);
+    if (error) { msg(`<div class="err">${esc(error.message)}</div>`); return; }
+    render();
+  };
+  $$("[data-delleave]").forEach(b => b.onclick = async () => {
+    const { error } = await sb.from("sched_leave").delete().eq("id", b.dataset.delleave);
+    if (error) msg(`<div class="err">${esc(error.message)}</div>`); else render();
+  });
+  const aa = $("#adAdd");
+  if (aa) aa.onclick = async () => {
+    try { await DB.rpc("set_admin", { p_email: $("#ad_e").value.trim(), p_on: true }); render(); }
+    catch (e) { msg(`<div class="err">${esc(errMsg(e))}</div>`); }
+  };
+  $$("[data-unadmin]").forEach(b => b.onclick = async () => {
+    try { await DB.rpc("set_admin", { p_email: b.dataset.unadmin, p_on: false }); render(); }
+    catch (e) { msg(`<div class="err">${esc(errMsg(e))}</div>`); }
+  });
+}
+
+/* --------------------------------------------------------------------------
+   Render
+   -------------------------------------------------------------------------- */
+let RENDERING = false;
+async function render(keepModal = false){
+  if (!keepModal) closeModal();
+  nav();
+  const app = $("#app");
+  if (!USER) { app.innerHTML = viewLogin(); wireLogin(); return; }
+  const r = route();
+  try {
+    if (r.startsWith("/sheet/")) {
+      const [, , date, teamId] = r.split("/");
+      app.innerHTML = await viewSheet(date, teamId); wireSheet(date, teamId); return;
+    }
+    if (r === "/mine") { app.innerHTML = await viewMine(); $$("[data-job]").forEach(b => b.onclick = () => openJob(Number(b.dataset.job))); return; }
+    if (r.startsWith("/setup")) { app.innerHTML = await viewSetup(); if (IS_ADMIN) wireSetup(); return; }
+    app.innerHTML = await viewBoard(); wireBoard();
+  } catch (e) {
+    app.innerHTML = `<div class="page"><div class="err">Could not load: ${esc(errMsg(e))}</div></div>`;
+  }
+}
+window.addEventListener("hashchange", () => render());
+let lastW = window.innerWidth;
+window.addEventListener("resize", () => {
+  if ((lastW < 760) !== (window.innerWidth < 760) && route().startsWith("/board") && BOARD) redrawBoard();
+  lastW = window.innerWidth;
+});
+
+(async () => {
+  const { data } = await sb.auth.getSession();
+  USER = data.session ? data.session.user : null;
+  if (USER) { try { await afterSignIn(); } catch (e) { /* shown by render */ } }
+  render();
+})();
+sb.auth.onAuthStateChange((event, session) => {
+  if (event === "SIGNED_OUT") { USER = null; IS_ADMIN = false; render(); }
+});
+</script>
+</body>
+</html>
